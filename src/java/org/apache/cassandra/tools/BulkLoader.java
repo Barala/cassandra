@@ -53,6 +53,7 @@ public class BulkLoader
     private static final String HELP_OPTION  = "help";
     private static final String NOPROGRESS_OPTION  = "no-progress";
     private static final String IGNORE_NODES_OPTION  = "ignore";
+    private static final String TENANT_ID="tenantId";
     private static final String INITIAL_HOST_ADDRESS_OPTION = "nodes";
     private static final String RPC_PORT_OPTION = "port";
     private static final String USER_OPTION = "username";
@@ -89,7 +90,8 @@ public class BulkLoader
                         options.sslStoragePort,
                         options.serverEncOptions),
                 handler,
-                options.connectionsPerHost);
+                options.connectionsPerHost,
+                options.tenantId);
         DatabaseDescriptor.setStreamThroughputOutboundMegabitsPerSec(options.throttle);
         StreamResultFuture future = null;
 
@@ -388,7 +390,8 @@ public class BulkLoader
 
         public final Set<InetAddress> hosts = new HashSet<>();
         public final Set<InetAddress> ignores = new HashSet<>();
-
+        public String tenantId = null;
+ 
         LoaderOptions(File directory)
         {
             this.directory = directory;
@@ -445,7 +448,11 @@ public class BulkLoader
 
                 if (cmd.hasOption(PASSWD_OPTION))
                     opts.passwd = cmd.getOptionValue(PASSWD_OPTION);
-
+                
+                if(cmd.hasOption(TENANT_ID)){
+                	opts.tenantId = cmd.getOptionValue(TENANT_ID);
+                }
+                
                 if (cmd.hasOption(INITIAL_HOST_ADDRESS_OPTION))
                 {
                     String[] nodes = cmd.getOptionValue(INITIAL_HOST_ADDRESS_OPTION).split(",");
@@ -648,6 +655,7 @@ public class BulkLoader
             options.addOption("st", SSL_STORE_TYPE, "STORE-TYPE", "Client SSL: type of store");
             options.addOption("ciphers", SSL_CIPHER_SUITES, "CIPHER-SUITES", "Client SSL: comma-separated list of encryption suites to use");
             options.addOption("f", CONFIG_PATH, "path to config file", "cassandra.yaml file path for streaming throughput and client/server SSL.");
+            options.addOption("o", TENANT_ID, "tenant Id", "Data will be transfered for only this tenant Id");
             return options;
         }
 

@@ -135,7 +135,6 @@ public class SSTableReader extends SSTable implements RefCounted
     private static final ScheduledThreadPoolExecutor syncExecutor = new ScheduledThreadPoolExecutor(1);
     private static final RateLimiter meterSyncThrottle = RateLimiter.create(100.0);
     private static final List<DecoratedKey> allDecoratedKeys = new ArrayList<>();
-    private static final String tenantId = "tenant6";
     
     public static final Comparator<SSTableReader> maxTimestampComparator = new Comparator<SSTableReader>()
     {
@@ -749,8 +748,9 @@ public class SSTableReader extends SSTable implements RefCounted
                 if (first == null)
                     first = decoratedKey;
                 last = decoratedKey;
+                
                 allDecoratedKeys.add(decoratedKey);
-                System.out.println(allDecoratedKeys);
+
                 if (recreateBloomFilter)
                     bf.add(decoratedKey.getKey());
 
@@ -1269,7 +1269,7 @@ public class SSTableReader extends SSTable implements RefCounted
      * Determine the minimal set of sections that can be extracted from this SSTable to cover the given ranges.
      * @return A sorted list of (offset,end) pairs that cover the given ranges in the datafile for this SSTable.
      */
-    public List<Pair<Long,Long>> getPositionsForRanges(Collection<Range<Token>> ranges) // this is fZor target node  
+    public List<Pair<Long,Long>> getPositionsForRanges(Collection<Range<Token>> ranges, String tenantId) // this is fZor target node  
     {
         // use the index to determine a minimal section for each range
         List<Pair<Long,Long>> positions = new ArrayList<>(); // this is gonna be range part for current SSTable
@@ -1283,19 +1283,11 @@ public class SSTableReader extends SSTable implements RefCounted
             RowPosition rightBound = bounds.right.isMinimum() ? last.getToken().maxKeyBound() : bounds.right;
  
             // here it is adding the position of first row to end row But we have to put filter here 
-            // you can do anything you just set your mind
+            // you can do anything you just set your mind to man ...
             
             if (leftBound.compareTo(last) > 0 || rightBound.compareTo(first) < 0)
                 continue;
             // write Cassandra Guru's function here !!
-            
-            Range<Token> barala = new Range<>(first.getToken(), last.getToken());
-            Iterable<DecoratedKey> decoratedKeys =  getKeySamples(range);
-            System.out.println(decoratedKeys);
-            
-            for(DecoratedKey tempKey : decoratedKeys){
-            	System.out.println(getFirstPartitionKeyAsString(tempKey));
-            }
             
             if(!tenantId.isEmpty()){
             	// write function to
@@ -1308,8 +1300,7 @@ public class SSTableReader extends SSTable implements RefCounted
             		if((barala1==allDecoratedKeys.size())){
             			temp=true;
             		}
-            		System.out.println(getRowPositionForDecoratedKey(decoratedKey,temp));
-            		if(doesContainTenantId(decoratedKey)){
+            		if(doesContainTenantId(decoratedKey,tenantId)){
             			allTargetPositions.add(getRowPositionForDecoratedKey(decoratedKey,temp));
             		}
             	}
@@ -1351,18 +1342,10 @@ public class SSTableReader extends SSTable implements RefCounted
     	return Pair.create(left, right);
     }
     
-    private static boolean doesContainTenantId(DecoratedKey decoratedKey){
+    private static boolean doesContainTenantId(DecoratedKey decoratedKey,String tenantId){
     	return new String(decoratedKey.getKey().array()).contains(tenantId);
     }
     
-    // add one more function :- 
-    private static String getFirstPartitionKeyAsString(DecoratedKey decoratedKey)
-    {
-        // read fist component from key components
-        //ByteBuffer firstPkBf = ByteBufferUtil.readBytesWithShortLength(decoratedKey.getKey());
-        return new String(decoratedKey.getKey().array());
-    	//return UTF8Type.instance.getString(firstPkBf);
-    }
     
     public void invalidateCacheKey(DecoratedKey key)
     {

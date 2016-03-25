@@ -53,7 +53,7 @@ public class SSTableLoader implements StreamEventHandler
     private final int connectionsPerHost;
     private final OutputHandler outputHandler;
     private final Set<InetAddress> failedHosts = new HashSet<>();
-
+    private final String tenantId;
     private final List<SSTableReader> sstables = new ArrayList<>();
     private final Multimap<InetAddress, StreamSession.SSTableStreamingSections> streamingDetails = HashMultimap.create();
 
@@ -64,16 +64,17 @@ public class SSTableLoader implements StreamEventHandler
 
     public SSTableLoader(File directory, Client client, OutputHandler outputHandler)
     {
-        this(directory, client, outputHandler, 1);
+        this(directory, client, outputHandler, 1, ""); //empty string means no tenant Id 
     }
 
-    public SSTableLoader(File directory, Client client, OutputHandler outputHandler, int connectionsPerHost)
+    public SSTableLoader(File directory, Client client, OutputHandler outputHandler, int connectionsPerHost, String tenantId)
     {
         this.directory = directory;
         this.keyspace = directory.getParentFile().getName();
         this.client = client;
         this.outputHandler = outputHandler;
         this.connectionsPerHost = connectionsPerHost;
+        this.tenantId = tenantId;
     }
 
     protected Collection<SSTableReader> openSSTables(final Map<InetAddress, Collection<Range<Token>>> ranges)
@@ -129,13 +130,7 @@ public class SSTableLoader implements StreamEventHandler
                     {
                         InetAddress endpoint = entry.getKey();
                         Collection<Range<Token>> tokenRanges = entry.getValue();
-                        System.out.println("Please replay!!");
-                        List<Pair<Long, Long>> sstableSections = sstable.getPositionsForRanges(tokenRanges);
-//                        sstableSections.clear();
-//                        Long A = (long) 0;
-//                        Long B = (long) 92;
-//                        sstableSections.add(new Pair(A,B));
-                        System.out.println(sstableSections);
+                        List<Pair<Long, Long>> sstableSections = sstable.getPositionsForRanges(tokenRanges,tenantId);
                         long estimatedKeys = sstable.estimatedKeysForRanges(tokenRanges);
                         Ref ref = sstable.tryRef();
                         if (ref == null)
@@ -166,16 +161,12 @@ public class SSTableLoader implements StreamEventHandler
     {
         client.init(keyspace);
         outputHandler.output("Established connection to initial hosts");
-        System.out.println("BBC");
         StreamPlan plan = new StreamPlan("Bulk Load", 0, connectionsPerHost).connectionFactory(client.getConnectionFactory());
 
         Map<InetAddress, Collection<Range<Token>>> endpointToRanges = client.getEndpointToRangesMap();
-        for(Map.Entry<InetAddress, Collection<Range<Token>>> entry : endpointToRanges.entrySet()){
-        		System.out.println(entry.getValue().size());
-        		System.out.println(entry.getValue());
-        }
+    
         openSSTables(endpointToRanges);
-        System.out.println("this above funtion opens the sstable -> from given directory path ");
+
         if (sstables.isEmpty())
         {
             // return empty result
