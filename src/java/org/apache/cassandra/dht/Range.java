@@ -403,6 +403,7 @@ public class Range<T extends RingPosition<T>> extends AbstractBounds<T> implemen
         });
 
         // deoverlap
+        //return output;
         return deoverlap(output);
     }
 

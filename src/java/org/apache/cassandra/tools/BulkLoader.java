@@ -58,7 +58,7 @@ public class BulkLoader
     private static final String USER_OPTION = "username";
     private static final String PASSWD_OPTION = "password";
     private static final String THROTTLE_MBITS = "throttle";
-
+    private static final boolean isTenantId = true;
     private static final String TRANSPORT_FACTORY = "transport-factory";
 
     /* client encryption options */

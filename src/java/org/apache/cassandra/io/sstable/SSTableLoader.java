@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 
 import com.google.common.collect.HashMultimap;
@@ -38,7 +39,6 @@ import org.apache.cassandra.streaming.*;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.OutputHandler;
 import org.apache.cassandra.utils.Pair;
-
 import org.apache.cassandra.utils.concurrent.Ref;
 
 /**
@@ -82,7 +82,8 @@ public class SSTableLoader implements StreamEventHandler
 
         directory.list(new FilenameFilter()
         {
-            public boolean accept(File dir, String name)
+            @SuppressWarnings("unchecked")
+			public boolean accept(File dir, String name)
             {
                 if (new File(dir, name).isDirectory())
                     return false;
@@ -128,8 +129,13 @@ public class SSTableLoader implements StreamEventHandler
                     {
                         InetAddress endpoint = entry.getKey();
                         Collection<Range<Token>> tokenRanges = entry.getValue();
-
+                        System.out.println("Please replay!!");
                         List<Pair<Long, Long>> sstableSections = sstable.getPositionsForRanges(tokenRanges);
+//                        sstableSections.clear();
+//                        Long A = (long) 0;
+//                        Long B = (long) 92;
+//                        sstableSections.add(new Pair(A,B));
+                        System.out.println(sstableSections);
                         long estimatedKeys = sstable.estimatedKeysForRanges(tokenRanges);
                         Ref ref = sstable.tryRef();
                         if (ref == null)
@@ -160,11 +166,16 @@ public class SSTableLoader implements StreamEventHandler
     {
         client.init(keyspace);
         outputHandler.output("Established connection to initial hosts");
-
+        System.out.println("BBC");
         StreamPlan plan = new StreamPlan("Bulk Load", 0, connectionsPerHost).connectionFactory(client.getConnectionFactory());
 
         Map<InetAddress, Collection<Range<Token>>> endpointToRanges = client.getEndpointToRangesMap();
+        for(Map.Entry<InetAddress, Collection<Range<Token>>> entry : endpointToRanges.entrySet()){
+        		System.out.println(entry.getValue().size());
+        		System.out.println(entry.getValue());
+        }
         openSSTables(endpointToRanges);
+        System.out.println("this above funtion opens the sstable -> from given directory path ");
         if (sstables.isEmpty())
         {
             // return empty result
