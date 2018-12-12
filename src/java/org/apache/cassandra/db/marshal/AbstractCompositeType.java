@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import org.apache.cassandra.cql3.Term;
+import org.apache.cassandra.serializers.BooleanSerializer;
 import org.apache.cassandra.serializers.TypeSerializer;
 import org.apache.cassandra.serializers.BytesSerializer;
 import org.apache.cassandra.serializers.MarshalException;
@@ -232,6 +233,12 @@ public abstract class AbstractCompositeType extends AbstractType<ByteBuffer>
         {
             comparators.get(i).serializeComparator(bb);
             ByteBufferUtil.writeShortLength(bb, component.remaining());
+            //check for BooleanSerailizer's static true/false buffers
+            if(checkBooleanSerializerStaticBuffers(component))
+            {
+                //can not consume
+                component = component.duplicate();
+            }
             bb.put(component); // it's ok to consume component as we won't use it anymore
             bb.put((byte)0);
             ++i;
@@ -243,6 +250,13 @@ public abstract class AbstractCompositeType extends AbstractType<ByteBuffer>
 
         bb.rewind();
         return bb;
+    }
+
+    private boolean checkBooleanSerializerStaticBuffers(ByteBuffer buffer)
+    {
+        BooleanSerializer booleanSerializer = BooleanSerializer.instance;
+        return buffer==booleanSerializer.serialize(Boolean.TRUE)
+                || buffer==booleanSerializer.serialize(Boolean.FALSE);
     }
 
     @Override

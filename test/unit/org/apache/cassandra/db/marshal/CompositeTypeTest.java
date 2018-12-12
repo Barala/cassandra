@@ -24,6 +24,7 @@ import java.util.*;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
+
 import static org.junit.Assert.fail;
 import static org.junit.Assert.assertEquals;
 
@@ -37,8 +38,11 @@ import org.apache.cassandra.db.partitions.ImmutableBTreePartition;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.cassandra.schema.KeyspaceParams;
+import org.apache.cassandra.serializers.BooleanSerializer;
 import org.apache.cassandra.serializers.MarshalException;
-import org.apache.cassandra.utils.*;
+import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.utils.FBUtilities;
+import org.apache.cassandra.utils.UUIDGen;
 
 public class CompositeTypeTest
 {
@@ -51,6 +55,7 @@ public class CompositeTypeTest
         subComparators.add(BytesType.instance);
         subComparators.add(TimeUUIDType.instance);
         subComparators.add(IntegerType.instance);
+        subComparators.add(BooleanType.instance);
         comparator = CompositeType.getInstance(subComparators);
     }
 
@@ -118,11 +123,20 @@ public class CompositeTypeTest
     @Test
     public void testFromString()
     {
-        String test1Hex = ByteBufferUtil.bytesToHex(ByteBufferUtil.bytes("test1"));
-        ByteBuffer key = createCompositeKey("test1", uuids[1], 42, false);
-        assert key.equals(comparator.fromString(test1Hex + ":" + uuids[1] + ":42"));
+        performFromStringAssertions(true);
+        performFromStringAssertions(false);
+    }
 
-        key = createCompositeKey("test1", uuids[1], -1, true);
+    private void performFromStringAssertions(Boolean val)
+    {
+        String test1Hex = ByteBufferUtil.bytesToHex(ByteBufferUtil.bytes("test1"));
+        ByteBuffer key = createCompositeKey("test1", uuids[1], 42, val, false);
+        System.out.println(comparator.getString(key.duplicate()));
+        assert key.equals(comparator.fromString(test1Hex + ":" + uuids[1] + ":42" + ":" + val.toString()));
+        //assert that static bytebuffer has position 0
+        assert BooleanSerializer.instance.serialize(val).position()==0;
+
+        key = createCompositeKey("test1", uuids[1], -1, val, true);
         assert key.equals(comparator.fromString(test1Hex + ":" + uuids[1] + ":!"));
     }
 
@@ -275,7 +289,7 @@ public class CompositeTypeTest
         }
     }
 
-    private ByteBuffer createCompositeKey(String s, UUID uuid, int i, boolean lastIsOne)
+    private ByteBuffer createCompositeKey(String s, UUID uuid, int i, Boolean b, boolean lastIsOne)
     {
         ByteBuffer bytes = ByteBufferUtil.bytes(s);
         int totalSize = 0;
@@ -288,6 +302,10 @@ public class CompositeTypeTest
                 if (i != -1)
                 {
                     totalSize += 2 + 1 + 1;
+                    if(b != null)
+                    {
+                        totalSize += 2 + 1 + 1;
+                    }
                 }
             }
         }
@@ -311,10 +329,21 @@ public class CompositeTypeTest
                     bb.putShort((short) 1);
                     bb.put((byte)i);
                     bb.put(lastIsOne ? (byte)1 : (byte)0);
+                    if(b != null)
+                    {
+                        bb.putShort((short) 1);
+                        bb.put(BooleanType.instance.decompose(b).duplicate());
+                        bb.put(b == null && lastIsOne ? (byte)1 : (byte)0);
+                    }
                 }
             }
         }
         bb.rewind();
         return bb;
+    }
+
+    private ByteBuffer createCompositeKey(String s, UUID uuid, int i, boolean lastIsOne)
+    {
+        return createCompositeKey(s, uuid, i, null, lastIsOne);
     }
 }
